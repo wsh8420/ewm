@@ -29,8 +29,8 @@ inline int get_size(int index, int span, int min_periods) {
 }
 
 inline double get_alpha(int index, int span, int min_periods) {
-    int size = get_size(index, span, min_periods);
-    return 2 / (size + 1.0);
+//    int size = get_size(index, span, min_periods);
+    return 2 / (span + 1.0);
 }
 
 static double get_ewm_mean(double *data, double alpha, int idx) {
@@ -49,12 +49,33 @@ double PandasDataFrame::ewm_mean(double *data, int index, int span, int min_peri
     return alpha * data[index - 1] + (1 - alpha) * pre_ewm_val;
 }
 
+inline double *fill_buckets(double *data, int index, int span) {
+    double *filled_data = new double[span];
+    memset(filled_data, 0, span);
+    int filled_len = span - index;
+    memcpy(filled_data + filled_len, data, index * sizeof(double));
+    for (int i = 0; i < filled_len; i++) {
+        filled_data[i] = data[0];
+    }
+    return filled_data;
+}
 
 double PandasDataFrame::ewm_mean(double *data, int index, int span, int min_periods) {
     if (data == nullptr || index <= 0 || span <= 0 || index < min_periods)
         return -1;
 
     double alpha = get_alpha(index, span, min_periods);
+    if (index < span) {
+        double *filled_data = nullptr;
+        filled_data = fill_buckets(data, index, span);
+        if (filled_data != nullptr) {
+            double ret = get_ewm_mean(filled_data, alpha, span);
+            delete[] filled_data;
+            filled_data = nullptr;
+            return ret;
+        }
+    }
+
     return get_ewm_mean(data, alpha, index);
 }
 
